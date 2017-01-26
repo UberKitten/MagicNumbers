@@ -4,8 +4,9 @@
  *  88YbdP88  dP__Yb  Yb  "88 88 Yb          88 Y88 Y8   8P 88YbdP88 88""Yb 88""   88"Yb  o.`Y8b 
  *  88 YY 88 dP""""Yb  YboodP 88  YboodP     88  Y8 `YbodP' 88 YY 88 88oodP 888888 88  Yb 8bodP' 
  *
- *  By Astra West. MIT License.
+ *  By Astra West
  *  https://github.com/T3hUb3rK1tten/MagicNumbers
+ *  MIT License.
  */
 
 /**
