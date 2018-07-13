@@ -73,7 +73,7 @@ var prop_Phone_HistoryCount = 5;
 
 /**
  * For the below numbers, instead of immediately hanging up, send the DTMF tones specified below in prop_Phone_ActionDTMF
- * This phone number must be in the exact format Twilio sends, i.e. +12345556969
+ * This phone number must be in the exact format (E.164) Twilio sends, i.e. +12345556969
  * Examples:
  *  prop_Phone_ActionNumbers = ["+12345556969"];
  *  prop_Phone_ActionNumbers = ["+12345556969", "+12345551337"];
@@ -81,12 +81,29 @@ var prop_Phone_HistoryCount = 5;
 var prop_Phone_ActionNumbers = [];
 
 /**
+ * Forward any numbers that are not action numbers to another phone number.
+ * Handy if you have to use the same number as a contact number and controlled access number.
+ **/
+var prop_Phone_ForwardNonActionNumbers = true;
+
+/**
+ * Number to forward to if ForwardNonActionNumbers is enabled.
+ **/
+var prop_Phone_ForwardNonActionNumbersTo = "+12345555420";
+
+/**
+ * Whether to use Twilio's recording functionality when forwarding calls.
+ * Make sure to consider recording consent laws, obviously.
+ **/
+var prop_Phone_RecordForwardedCalls = false;
+
+/**
  * The DTMF codes to send when a calling number matches the prop_Phone_ActionNumbers.
  * This can be numbers and "w" which means that Twilio should wait 0.5 seconds before continuing.
  * For example, 9ww9 will press 9, wait 1 second, and then press 9 again.
  * You should leave at least 1 second in between numbers, or they seem to get cut off.
  */
-var prop_Phone_ActionDTMF = "";
+var prop_Phone_ActionDTMF = "9ww9ww9ww9ww9ww9ww9";
 
 /**
  *  88""Yb 88   88 .dP"Y8 88  88  dP"Yb  Yb    dP 888888 88""Yb 
@@ -206,7 +223,7 @@ function updateHeaders() {
       }
     } 
     if (prop_Phone_Enable && prop_Phone_UseHeader) {
-      phone.getRange(1,1,1,2).setValues([["From", "Action Sent"]])
+      phone.getRange(1,1,1,3).setValues([["From", "Action Sent", "Forwarded"]])
     }
     SpreadsheetApp.flush();
   } finally {
@@ -240,7 +257,7 @@ function doGet(e) {
       
       if (prop_Phone_ActionNumbers.indexOf(msg.From) > -1) {
         // Custom action number
-        insertRow(phone, [msg.From, "Yes"],index);
+        insertRow(phone, [msg.From, "Yes", "No"],index);
         clearRows(phone, index + prop_Phone_HistoryCount);
         
         if (prop_Pushover_Phone) {
@@ -249,14 +266,28 @@ function doGet(e) {
         
         return ContentService.createTextOutput(xml + "<Response><Play digits=\"" + prop_Phone_ActionDTMF + "\"></Play></Response>").setMimeType(ContentService.MimeType.XML);
       } else {
-        insertRow(phone, [msg.From, "No"],index);
-        clearRows(phone, index + prop_Phone_HistoryCount);
-        
-        if (prop_Pushover_Phone) {
-          pushover("Phone: " + msg.From + ": Did not send code");
+        if (prop_Phone_ForwardNonActionNumbers) {
+          insertRow(phone, [msg.From, "No", "Yes"],index);
+          clearRows(phone, index + prop_Phone_HistoryCount);
+          
+          if (prop_Pushover_Phone) {
+            pushover("Phone: " + msg.From + ": Forwarded");
+          }
+          
+          if (prop_Phone_RecordForwardedCalls) {
+            return ContentService.createTextOutput(xml + "<Response><Dial record=\"record-from-answer-dual\" answerOnBridge=\"true\"><Number>" + prop_Phone_ForwardNonActionNumbersTo + "</Number></Dial></Response>").setMimeType(ContentService.MimeType.XML);
+          } else {
+            return ContentService.createTextOutput(xml + "<Response><Dial answerOnBridge=\"true\"><Number>" + prop_Phone_ForwardNonActionNumbersTo + "</Number></Dial></Response>").setMimeType(ContentService.MimeType.XML);
+          }
+        } else {
+          insertRow(phone, [msg.From, "No", "No"],index);
+          clearRows(phone, index + prop_Phone_HistoryCount);
+          
+          if (prop_Pushover_Phone) {
+            pushover("Phone: " + msg.From + ": Did not send code");
+          }
+          return ContentService.createTextOutput(xml + "<Response></Response>").setMimeType(ContentService.MimeType.XML);
         }
-        
-        return ContentService.createTextOutput(xml + "<Response></Response>").setMimeType(ContentService.MimeType.XML);
       }
     }
   } else {
